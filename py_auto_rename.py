@@ -1,3 +1,9 @@
+#  Copyright (c) 2021-2022. Alexis LEBEL
+#  All rights reserved
+#  This code belongs exclusively to it's author, and cannot be reproduced legally without it's author's authorization.
+#  This code is made available to use to ERIBEL.
+#  If you find this file publicly available anywhere else than on the authors' Github, please warn it's author.
+
 import json
 import sys
 import re
