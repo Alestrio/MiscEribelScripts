@@ -3,8 +3,8 @@ import sys
 import re
 import os
 
-from office365.runtime.auth.authentication_context import AuthenticationContext
-from office365.sharepoint.client_context import ClientContext
+from shareplum import Site
+from shareplum import Office365
 
 from openpyxl import load_workbook
 
@@ -22,15 +22,17 @@ def get_conf_from_json():
     raise Exception("Unable to fetch configuration")
 
 def copy_excel_from_sharepoint():
-  #Copy excel from sharepoint
+  """Copy excel from sharepoint"""
+  # Using tutorial from https://shareplum.readthedocs.io/en/latest/tutorial.html#office-365-authentication
   conf = get_conf_from_json()
 
-  ctx_auth = AuthenticationContext(conf['server_url'])
-  ctx_auth.acquire_token_for_user(conf['username'], conf['password'])   
-  ctx = ClientContext(conf['server_url'] + conf['site_url'], ctx_auth)
-  response = File.open_binary(ctx, conf['file_path'])
-  with open("./temp_excel.xlsx", "wb") as local_file:
-      local_file.write(response.content)
+  authcookie = Office365(conf['domain'], username=conf['username'], password=conf['password']).GetCookies()
+  site = Site(conf['site'], authcookie=authcookie)
+
+  folder = site.Folder(conf['folder_path'])
+  folder.get_file(conf['filename'])
+  os.rename(f'./{conf["filename"]}', './temps_excel.xlsx')
+  
 
 def load_spreadsheet():
   """Loads spreadsheet"""
@@ -165,7 +167,7 @@ def get_directory_definition():
   return ordered_equipts
 
 def rename_file(file_path, equipt_nr):
-  """Renames a fle with it's corresponding new name"""
+  """Renames a file with it's corresponding new name"""
   work_tuples = parse_columns()
   path_regex = re.compile(r'(?P<path>[\w\\:]*)\\(?P<filename>[\w]*).(?P<extension>[\w].)')
   match = path_regex.search(file_path)
@@ -220,10 +222,7 @@ if __name__ == '__main__':
   copy_excel_from_sharepoint()
   load_spreadsheet()
   set_user_defined_sheet_name()
-  get_old_numbers_column()
-  get_new_numbers_columns()
-  parse_columns()
-  #get_directory_definition()
+  recursively_rename_files()
   create_numbers_table()
   delete_temp_excel()
   
