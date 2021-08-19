@@ -24,11 +24,14 @@ def get_conf_from_json():
 def copy_excel_from_sharepoint():
   """Copy excel from sharepoint"""
   # Using tutorial from https://shareplum.readthedocs.io/en/latest/tutorial.html#office-365-authentication
+  # Fetching conf
   conf = get_conf_from_json()
 
+  # Generating auth cookie and site
   authcookie = Office365(conf['domain'], username=conf['username'], password=conf['password']).GetCookies()
   site = Site(conf['site'], authcookie=authcookie)
 
+  # File download and rename
   folder = site.Folder(conf['folder_path'])
   folder.get_file(conf['filename'])
   os.rename(f'./{conf["filename"]}', './temps_excel.xlsx')
@@ -47,6 +50,7 @@ def set_user_defined_sheet_name():
   invoice_nr = input('Veuillez entrer un numéro de C. : ')
   sheets = workbook.sheetnames
 
+  # Research amongs all sheets (There can be a lot)
   for ii in sheets:
     if ii.contains(machine_nr) and ii.contains(invoice_nr):
       sheet = workbook['ii']
@@ -56,6 +60,7 @@ def set_user_defined_sheet_name():
     elif ii.contains(invoice_nr):
       probable_sheets.append(ii)
 
+  # If no exact corresponding sheet is found
   if not sheet and probable_sheets != []:
     print('Aucune feuille ne correspond totalement à votre recherche, mais certaines s\'en rapprochent :')
     i = 0
@@ -65,6 +70,7 @@ def set_user_defined_sheet_name():
     print('99 pour quitter')
     choice = input('Faites un choix :')
 
+    # Let the user exit the script
     if choice == 'q':
       sys.exit()
     else:
@@ -83,12 +89,12 @@ def get_new_numbers_columns():
   new_numbers_columns = []
   cells_to_check = sheet['A17', 'BK24']
   for ii in cells_to_check:
-    if ii.value == 'ancienne':
+    if ii.value == 'nouvelle':
       new_numbers_columns.append(ii.column_letter)
   if new_numbers_columns != []:
     return new_numbers_columns
   else:
-    raise Exception('No column named "ancienne" in cell range')
+    raise Exception('No column named "nouvelle" in cell range')
 
 def parse_columns():
   """Creates array of tuples for numbers replacement"""
@@ -160,6 +166,7 @@ def get_directory_definition():
     if len(order) == len(equipt_dirs):
       break
 
+  # Ordering equipement according to user input
   ordered_equipts = []
   for ii in order:
     ordered_equipts.append(equipt_dirs[int(ii)])
@@ -169,18 +176,22 @@ def get_directory_definition():
 def rename_file(file_path, equipt_nr):
   """Renames a file with it's corresponding new name"""
   work_tuples = parse_columns()
+  # Regex used to get differents parts of the file path
   path_regex = re.compile(r'(?P<path>[\w\\:]*)\\(?P<filename>[\w]*).(?P<extension>[\w].)')
+  # Match object containing the different parts of the file path
   match = path_regex.search(file_path)
 
+  # Getting the right file to rename
   associated_nr = 0
   for ii in work_tuples:
     if match.group('filename') == ii[0]:
       associated_nr = ii[equipt_nr+1]
 
+  # Renaming the file
   os.rename(file_path, match.group('path')+'\\'+associated_nr+match.group('extension'))
 
 def iterate_dir(dir_path:str, files, equipt_nr):
-  """Function iterating a directory"""
+  """Recursive function iterating a directory"""
   for ii in os.listdir(dir_path):
     if os.path.isdir(ii):
       iterate_dir(ii)
@@ -194,6 +205,7 @@ def recursively_rename_files():
   """Recursively replaces old numbers with new numbers"""
   ordered_equipts = get_directory_definition()
 
+  # Iterates each equipement folder
   for ii in ordered_equipts:
     iterate_dir(ii, ordered_equipts.index(ii))
 
