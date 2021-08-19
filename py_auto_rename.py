@@ -188,7 +188,7 @@ def rename_file(file_path, equipt_nr):
       associated_nr = ii[equipt_nr+1]
 
   # Renaming the file
-  os.rename(file_path, match.group('path')+'\\'+associated_nr+match.group('extension'))
+  os.rename(file_path, match.group('path')+'\\'+associated_nr+'.'+match.group('extension'))
 
 def iterate_dir(dir_path:str, files, equipt_nr):
   """Recursive function iterating a directory"""
