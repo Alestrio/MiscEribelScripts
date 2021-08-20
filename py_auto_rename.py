@@ -19,8 +19,6 @@ import msal
 from openpyxl import load_workbook
 
 conf_filename = "auto_rename_conf.json"
-workbook = None
-sheet = None
 
 
 def get_conf_from_json():
@@ -58,28 +56,27 @@ def copy_excel_from_sharepoint():
 	with open('./temp_excel.xlsm', 'wb') as tempxl:
 		file_item.download(tempxl).execute_query()
 
-def load_spreadsheet():
-  """Loads spreadsheet"""
-  workbook = load_workbook(filename='./temp_excel.xlsm')
-
 
 def set_user_defined_sheet_name():
   """Ask the user which sheet to use (Machine Nr - Invoice Nr) and set it as active"""
+  global sheet
   probable_sheets = []
 
   machine_nr = input('Veuillez entrer un numéro de machine (Vide si recherche par C.) : ')
   invoice_nr = input('Veuillez entrer un numéro de C. : ')
+  workbook = load_workbook(filename='./temp_excel.xlsm')
   sheets = workbook.sheetnames
 
   # Research amongs all sheets (There can be a lot)
   for ii in sheets:
-    if ii.contains(machine_nr) and ii.contains(invoice_nr):
-      sheet = workbook['ii']
+    if machine_nr in ii and invoice_nr in ii:
+      sheet = workbook[ii]
       break
-    elif ii.contains(machine_nr):
+    elif machine_nr in ii:
       probable_sheets.append(ii)
-    elif ii.contains(invoice_nr):
+    elif invoice_nr in ii:
       probable_sheets.append(ii)
+	  
 
   # If no exact corresponding sheet is found
   if not sheet and probable_sheets != []:
@@ -96,22 +93,27 @@ def set_user_defined_sheet_name():
       sys.exit()
     else:
       sheet = workbook[probable_sheets[int(choice)]]
+  
 
 def get_old_numbers_column():
   #Get old numbers column
-  cells_to_check = sheet['A17', 'G24']
+  cells_to_check = sheet['A8':'G20']
+  # Line iteration
   for ii in cells_to_check:
-    if ii.value == 'ancienne':
-      return ii.column_letter
+    # Column iteration
+    for ij in ii:
+      if ij.value == 'ancienne':
+        return ij.column_letter
   raise Exception('No column named "ancienne" in cell range')
 
 def get_new_numbers_columns():
   #Get new numbers columns
   new_numbers_columns = []
-  cells_to_check = sheet['A17', 'BK24']
+  cells_to_check = sheet['A8':'BK20']
   for ii in cells_to_check:
-    if ii.value == 'nouvelle':
-      new_numbers_columns.append(ii.column_letter)
+    for ij in ii:
+      if ij.value == 'nouvelle':
+        new_numbers_columns.append(ij.column_letter)
   if new_numbers_columns != []:
     return new_numbers_columns
   else:
@@ -124,12 +126,15 @@ def parse_columns():
   new_columns_letters = get_new_numbers_columns()
 
   # Fetch old numbers
-  old_column_cells = [f'{old_column_letter}15', f'{old_column_letter}120']
+  old_column_cells = sheet[f'{old_column_letter}15':f'{old_column_letter}120']
   old_numbers_cells = []
   for ii in old_column_cells:
-    if re.search('[0-9]{7}'):
+    if re.match('[0-9]{7}', str(ii[0].value)):
       old_numbers_cells.append(ii)
+  print(old_numbers_cells)
 
+  ##----- WORKING UNTIL HERE -----##
+  
   # Fetch all new numbers (for each format)
   # Creates an array of arrays of cells ([[CellA, CellB], [CellC, CellD]])
   for ii in old_numbers_cells:
@@ -155,7 +160,7 @@ def parse_columns():
     # Finally, the array is parsed as a tuple and added to the list
     work_tuples.append(tuple(work_array))
 
-    return work_tuples
+  return work_tuples
 
 def get_directory_definition():
   """Recursively replaces old numbers with new numbers"""
@@ -166,11 +171,11 @@ def get_directory_definition():
   # Listing equipement directories :
   equipt_dirs = []
   for ii in os.listdir(dir):
-    if ii.contains('EQUIPT'):
+    if 'EQUIPT' in ii:
       equipt_dirs.append(dir + '\\' + ii)
 
   # Testing data coherence :
-  if not len(work_tuples[1])-1 == len(equipt_dirs):
+  if not len(work_tuples[0])-1 == len(equipt_dirs):
     raise Exception("Data coherence test failed, not enough EQUIPTS for numbers")
 
   # Associating a column to a folder :
@@ -253,7 +258,6 @@ def delete_temp_excel():
 if __name__ == '__main__':
   #Main function
   copy_excel_from_sharepoint()
-  load_spreadsheet()
   set_user_defined_sheet_name()
   recursively_rename_files()
   create_numbers_table()
