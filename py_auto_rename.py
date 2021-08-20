@@ -9,14 +9,19 @@ import sys
 import re
 import os
 
-from shareplum import Site
-from shareplum import Office365
+from office365.runtime.auth.authentication_context import AuthenticationContext
+from office365.sharepoint.client_context import ClientContext
+from office365.graph_client import GraphClient
+
+import cloudsync
+import msal
 
 from openpyxl import load_workbook
 
 conf_filename = "auto_rename_conf.json"
 workbook = None
 sheet = None
+
 
 def get_conf_from_json():
   """Fetch config from json config file"""
@@ -26,26 +31,36 @@ def get_conf_from_json():
     return conf
   else:
     raise Exception("Unable to fetch configuration")
+	
+def acquire_token_func():
+	"""
+	Acquire token via MSAL
+	"""
+	conf = get_conf_from_json()
+	tenant_name = conf['tenant_name']
+	authority_url = f'https://login.microsoftonline.com/{tenant_name}'
+	app = msal.ConfidentialClientApplication(
+		authority=authority_url,
+		client_id=conf['client_id'],
+		client_credential=conf['client_secret']
+	)
+	token = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+	return token
 
 def copy_excel_from_sharepoint():
-  """Copy excel from sharepoint"""
-  # Using tutorial from https://shareplum.readthedocs.io/en/latest/tutorial.html#office-365-authentication
-  # Fetching conf
-  conf = get_conf_from_json()
-
-  # Generating auth cookie and site
-  authcookie = Office365(conf['domain'], username=conf['username'], password=conf['password']).GetCookies()
-  site = Site(conf['site'], authcookie=authcookie)
-
-  # File download and rename
-  folder = site.Folder(conf['folder_path'])
-  folder.get_file(conf['filename'])
-  os.rename(f'./{conf["filename"]}', './temps_excel.xlsx')
-  
+	"""Copy excel from sharepoint"""
+	conf = get_conf_from_json()
+	token = acquire_token_func
+	client = GraphClient(token)
+	tenant_prefix = 'eribel354'
+	file_abs_url = conf['file_abs_url']
+	file_item = client.shares.by_url(file_abs_url).drive_item.get().execute_query()
+	with open('./temp_excel.xlsm', 'wb') as tempxl:
+		file_item.download(tempxl).execute_query()
 
 def load_spreadsheet():
   """Loads spreadsheet"""
-  workbook = load_workbook(filename='./temp_excel.xlsx')
+  workbook = load_workbook(filename='./temp_excel.xlsm')
 
 
 def set_user_defined_sheet_name():
